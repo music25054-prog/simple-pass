@@ -19,5 +19,5 @@ All necessary files are in zip. Application folder and file structure must be li
     └── qwindows.dll           <-- Needed interface plugin
 # Used programs
 In this project i used:
-# 1.Qt 5.6.3 - for creating project;
-# 2.OpenSSL 1.0.2 - for encryption.
+1.Qt 5.6.3 - for creating project;
+2.OpenSSL 1.0.2 - for encryption.
