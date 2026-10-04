@@ -25,15 +25,15 @@ public:
 private slots:
     void onAddCredential();
     void onDeleteCredential();
-    void onEditCredential();          // Изменение пароля выбранного сервиса
-    void onChangeMasterPassword();    // Смена мастер-пароля
+    void onEditCredential();
+    void onChangeMasterPassword();
     void onSaveVault();
 
 private:
     void setupUI();
     bool authenticate();
     void loadVaultToTable();
-
+    
     QByteArray encrypt(const QByteArray &plainText, const QString &masterPassword);
     QByteArray decrypt(const QByteArray &cipherText, const QString &masterPassword);
 
