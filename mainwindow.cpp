@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QFile>
+#include <QCoreApplication>
 #include <sstream>
 
 #include <openssl/evp.h>
@@ -12,15 +13,16 @@
 #include <openssl/sha.h>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), vaultFileName("vault.enc"), initialized(false) {
+    : QMainWindow(parent),
+      vaultFileName(QCoreApplication::applicationDirPath() + "/vault.enc"),
+      initialized(false) {
     setupUI();
     if (!authenticate()) {
-        return; // Выход без паники, если отменили ввод
+        return;
     }
     initialized = true;
     loadVaultToTable();
 }
-
 MainWindow::~MainWindow() {}
 
 void MainWindow::setupUI() {
@@ -52,7 +54,6 @@ void MainWindow::setupUI() {
     inputLayout->addWidget(passwordInput);
     mainLayout->addLayout(inputLayout);
 
-    // Кнопки управления записями
     QHBoxLayout *btnLayout1 = new QHBoxLayout();
     addButton = new QPushButton("Добавить", this);
     editButton = new QPushButton("Изменить пароль", this);
@@ -63,7 +64,6 @@ void MainWindow::setupUI() {
     btnLayout1->addWidget(deleteButton);
     mainLayout->addLayout(btnLayout1);
 
-    // Кнопка управления мастер-паролем
     QHBoxLayout *btnLayout2 = new QHBoxLayout();
     changeMasterButton = new QPushButton("Сменить мастер-пароль", this);
     btnLayout2->addWidget(changeMasterButton);
@@ -87,6 +87,7 @@ bool MainWindow::authenticate() {
 
     QFile file(vaultFileName);
     if (file.exists()) {
+        // Если файл существует — обычный вход с проверкой пароля
         if (!file.open(QIODevice::ReadOnly)) {
             QMessageBox::critical(this, "Ошибка", "Не удалось открыть файл хранилища!");
             return false;
@@ -116,10 +117,11 @@ bool MainWindow::authenticate() {
                 credentials.push_back(cred);
             }
         }
+    } else {
+        onSaveVault();
     }
     return true;
 }
-
 void MainWindow::loadVaultToTable() {
     tableWidget->setRowCount(0);
     for (size_t i = 0; i < credentials.size(); ++i) {
@@ -223,11 +225,18 @@ void MainWindow::onSaveVault() {
     QByteArray plainData(content.c_str(), content.size());
     QByteArray encryptedData = encrypt(plainData, masterPassword);
 
-    QFile file(vaultFileName);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(encryptedData);
-        file.close();
+    if (encryptedData.isEmpty()) {
+        QMessageBox::critical(this, "Ошибка", "Ошибка шифрования данных! Файл хранилища не был изменен.");
+        return;
     }
+
+    QFile file(vaultFileName);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::critical(this, "Ошибка", "Не удалось открыть файл хранилища для записи!");
+        return;
+    }
+    file.write(encryptedData);
+    file.close();
 }
 
 QByteArray MainWindow::encrypt(const QByteArray &plainText, const QString &masterPass) {
@@ -240,9 +249,10 @@ QByteArray MainWindow::encrypt(const QByteArray &plainText, const QString &maste
     unsigned char key[32];
     unsigned char iv[16];
 
+    QByteArray passBytes = masterPass.toUtf8();
     EVP_BytesToKey(cipher, EVP_sha256(), salt,
-                   (unsigned char*)masterPass.toUtf8().constData(),
-                   masterPass.toUtf8().length(), 1, key, iv);
+                   (unsigned char*)passBytes.constData(),
+                   passBytes.length(), 1, key, iv);
 
     EVP_CIPHER_CTX ctx;
     EVP_CIPHER_CTX_init(&ctx);
@@ -293,9 +303,10 @@ QByteArray MainWindow::decrypt(const QByteArray &cipherText, const QString &mast
     unsigned char key[32];
     unsigned char iv[16];
 
+    QByteArray passBytes = masterPass.toUtf8();
     EVP_BytesToKey(cipher, EVP_sha256(), (const unsigned char*)salt,
-                   (unsigned char*)masterPass.toUtf8().constData(),
-                   masterPass.toUtf8().length(), 1, key, iv);
+                   (unsigned char*)passBytes.constData(),
+                   passBytes.length(), 1, key, iv);
 
     EVP_CIPHER_CTX ctx;
     EVP_CIPHER_CTX_init(&ctx);
